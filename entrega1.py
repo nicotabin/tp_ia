@@ -8,17 +8,11 @@ from simpleai.search import (
 
 from simpleai.search.viewers import WebViewer, BaseViewer
 
-CAMIONES = [
-    ('c1', 'rafaela', 1.5),
-    ('c2', 'rafaela', 2),
-    ('c3', 'santa_fe', 2),
-    ]
-PAQUETES = [
-    ('p1', 'rafaela', 'angelica'),
-    ('p2', 'rafaela', 'santa_fe'),
-    ('p3', 'esperanza', 'susana'),
-    ('p4', 'recreo', 'san_vicente'),
-]
+from simpleai.search.traditional import astar
+
+
+CAMIONES = []
+PAQUETES = []
 
 INITIAL_STATE = ((('sunchales',1.5,()), ('sunchales',2,()), ('rafaela',2, ())), ('p1', 'p2', 'p3', 'p4'))
 
@@ -27,7 +21,6 @@ CONECTADAS = {
     'lehmann': [('rafaela', 8), ('sunchales', 32)],
     'rafaela': [('susana', 10), ('esperanza', 70), ('lehmann', 8)],
     'susana': [('angelica', 25), ('rafaela', 10)],
-    'angelica': [('san_vicente', 18), ('sc_de_saguier', 60), ('susana', 25)],
     'esperanza': [('recreo', 20), ('rafaela', 70)],
     'recreo': [('santa_fe', 10), ('esperanza', 20)],
     'santa_fe': [('santo_tome', 5), ('recreo', 10)],
@@ -37,20 +30,6 @@ CONECTADAS = {
     'sc_de_saguier': [('angelica', 60)],
     'angelica': [('san_vicente', 18), ('sc_de_saguier', 60), ('susana', 25), ('santo_tome', 85)],
 }
-
-def planear_camiones (metodo, camiones, paquetes):
-    lista = []
-    for camion in camiones:
-        lista.append((camion[1], camion[2]), ()) 
-
-    lista2 = []
-    for index, paquete in enumerate(paquetes):
-        lista2.append(index)
-
-    INITIAL_STATE = (tuple(lista), tuple(lista2))
-
-    CAMIONES = camiones
-    PAQUETES = paquetes
 
 
 class tp_iaProblem(SearchProblem):
@@ -80,12 +59,18 @@ class tp_iaProblem(SearchProblem):
     
     def actions(self,state):
         acciones_posibles = []
-        camiones, paquetes = state
-
+        #camiones, paquetes = state
+        camiones = []
+        paquetes = []
+        camiones.append(state[0])
+        paquetes.append(state[1])
+        lista_ciudades = []
         for index,  camion in enumerate(camiones):
-            for ciudad in CONECTADAS[camion[0]]:
+            #for ciudad in CONECTADAS[camion[0]]:
+            lista_ciudades = CONECTADAS[camion[0][0]]
+            for ciudad in lista_ciudades:
                 nafta = ciudad[1]/100
-                if (camion[1] >= nafta):
+                if (camion[0][1] >= nafta):
                     acciones_posibles.append((index, ciudad[0]))
         return acciones_posibles    
             
@@ -127,31 +112,80 @@ class tp_iaProblem(SearchProblem):
         camiones, paquetes = state
         return len(paquetes)
     
-    
-    
-metodos = (
-    #breadth_first,
-    #depth_first,
-    #iterative_limited_depth_first,
-    uniform_cost,
-)    
-        
-for metodo_busqueda in metodos:
-    print()
-    print('=' * 50)
-    print("corriendo:", metodo_busqueda)
-    visor = BaseViewer()
+
+def planear_camiones (metodo, camiones, paquetes):
+    lista = []
+    for camion in camiones:
+        lista.extend(((camion[1], camion[2]), ())) 
+
+    lista2 = []
+    for index, paquete in enumerate(paquetes):
+        lista2.append(index)
+
+    INITIAL_STATE = (tuple(lista), tuple(lista2))
+
+    CAMIONES = camiones
+    PAQUETES = paquetes
+
     problem = tp_iaProblem(INITIAL_STATE)
-    result = metodo_busqueda(problem, graph_search = True, viewer = visor)
-    print ('estado final:')
-    print(result.state)
 
-    print('-' * 50)
 
-    print('estadísticas:')
-    print('cantidad de acciones hasta la meta:', len(result.path()))
-    print(visor.stats)
+    METODOS = {
+        'breadth_first': breadth_first,
+        'depth_first': depth_first,
+        'iterative_limited_depth_first': iterative_limited_depth_first,
+        'uniform_cost': uniform_cost,
+        'astar': astar,
+    }
 
-    for action,state in result.path():
-        print('accion:', action)
-        print('estado resultante:', state)
+    result = METODOS[metodo](problem)
+
+    itinerario = []
+    nasta = 0
+
+    for action, state in result.path():
+        camiones_estado, paquetes_estado = state
+        index_camion_action, ciudad_destino = action
+        lista_paquetes = []
+        for index_camion, camion in enumerate(camiones_estado):
+            if index_camion == index_camion_action:
+                for ciudades in CONECTADAS[camion[1]]:
+                    for ciudad in ciudades:
+                        if ciudad == ciudad_destino:
+                            nasta = ciudad[1]/100
+                            for index_paquete, paq in paquetes:
+                                for p in camion[2]:
+                                    if p == index_paquete:
+                                        lista_paquetes.append(paq[0])
+                            itinerario = (camiones[index_camion][0], ciudad_destino, nasta, tuple(lista_paquetes))
+    
+    return itinerario
+
+
+if __name__ == '__main__':
+    camiones=[
+        # id, ciudad de origen, y capacidad de combustible máxima (litros)
+        ('c1', 'rafaela', 1.5),
+        ('c2', 'rafaela', 2),
+        ('c3', 'santa_fe', 2),
+    ]
+
+    paquetes=[
+        # id, ciudad de origen, y ciudad de destino
+        ('p1', 'rafaela', 'angelica'),
+        ('p2', 'rafaela', 'santa_fe'),
+        ('p3', 'esperanza', 'susana'),
+        ('p4', 'recreo', 'san_vicente'),
+    ]
+
+    itinerario = planear_camiones(
+        # método de búsqueda a utilizar. Puede ser: astar, breadth_first, depth_first, uniform_cost o greedy
+        breadth_first,camiones,paquetes
+    )
+
+    print(itinerario)
+
+
+
+    
+
