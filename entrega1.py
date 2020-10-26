@@ -35,23 +35,8 @@ CONECTADAS = {
 class tp_iaProblem(SearchProblem):
     
     def cost(self,state1,action,state2):
-        camiones1, paquetes1 = state1
-        camiones1 = []
-        if isinstance(state1[0][0], str):
-            camiones1.append(state1[0])
-        else:
-            for camon in state1[0]:
-                camiones1.append(camon)
-
-        costo = 0
-
-        for index, camion in enumerate(camiones1):
-            if index == action[0]:
-                for ciudad in CONECTADAS[camion[0]]:
-                    if ciudad[0] == action[1]:
-                        costo = camion[1] - round((ciudad[1]/100),2)
         
-        return costo
+        return action[2]
     
     def is_goal(self,state):
         camiones_estado, paquetes_estado = state
@@ -64,7 +49,12 @@ class tp_iaProblem(SearchProblem):
 
         for camion in lista:
             if camion[0] not in COMBUSTIBLE or len(camion[2]) != 0:
-                return False
+                if camion[0] in COMBUSTIBLE:
+                    for paquete_camion in camion[2]:
+                        if PAQUETES[paquete_camion][2] != camion[0]: 
+                            return False
+                else:
+                    return False
 
         return True
     
@@ -84,8 +74,9 @@ class tp_iaProblem(SearchProblem):
             lista_ciudades = CONECTADAS[camion[0]]
             for ciudad in lista_ciudades:
                 nafta = round((ciudad[1]/100),2)
-                if (camion[1] >= nafta):
-                    acciones_posibles.append((index, ciudad[0]))
+                nafta_camion = round(camion[1], 2)
+                if (nafta_camion >= nafta):
+                    acciones_posibles.append((index, ciudad[0], nafta))
         return acciones_posibles    
             
     
@@ -104,10 +95,10 @@ class tp_iaProblem(SearchProblem):
         caracteristicas_camion = CAMIONES[action[0]]
         if camion_estado[0] == 'rafaela' or camion_estado[0] == 'santa_fe':
             camion_estado[1] = caracteristicas_camion[2]
-        else:
-            for destino in CONECTADAS[camion_estado[0]]:
-                if destino[0] == ciudad_destino:
-                    nafta = round((destino[1]/100),2)
+        #else:
+        nafta_camion = round(camion_estado[1])
+        if nafta_camion >= nafta: 
+            nafta = action[2]
         
         
         for index_paq, paq in enumerate(PAQUETES):
@@ -125,14 +116,16 @@ class tp_iaProblem(SearchProblem):
         if len(camion_estado[2]) != 0:
             for paquete in camion_estado[2]:
                 for index_paq, paq in enumerate(PAQUETES):
-                    if index_paq == paquete:
+                    if index_paq == paquete and paq[2] == camion_estado[0]:
                         camion_estado[2] = list(camion_estado[2])
                         camion_estado[2].remove(index_paq)
                         camion_estado[2] = tuple(camion_estado[2])
-        camion_estado[1] -= nafta
+        camion_estado[1] = round((camion_estado[1] - nafta), 2)
         camion_estado[0] = ciudad_destino
+        #print(camion_estado[1])
         camiones_estado[action[0]] = tuple(camion_estado)
         state = (tuple(camiones_estado), tuple(paquetes_estado))
+        print(state)
         return state
 
 
@@ -145,14 +138,14 @@ class tp_iaProblem(SearchProblem):
 def planear_camiones (metodo, camiones, paquetes):
     lista = []
     for camion in camiones:
-        lista.extend((camion[1], camion[2], ())) 
+        lista.append((camion[1], camion[2], ())) 
 
     lista2 = []
     for index, paquete in enumerate(paquetes):
         lista2.append(index)
 
     INITIAL_STATE = (tuple(lista), tuple(lista2))
-
+    print(INITIAL_STATE)
     global CAMIONES
     CAMIONES =  list(camiones)
     global PAQUETES 
@@ -160,7 +153,7 @@ def planear_camiones (metodo, camiones, paquetes):
 
     problem = tp_iaProblem(INITIAL_STATE)
 
-
+    
     METODOS = {
         'breadth_first': breadth_first,
         'depth_first': depth_first,
@@ -168,36 +161,46 @@ def planear_camiones (metodo, camiones, paquetes):
         'uniform_cost': uniform_cost,
         'astar': astar,
     }
+    
 
     result = METODOS[metodo](problem)
-
+    print(result)
     itinerario = []
-    nasta = 0
+    
 
     for action, state in result.path():
-        #if state is not None and action is not None:
-        camiones_estado, paquetes_estado = state
-        index_camion_action, ciudad_destino = action
-        
-        lista_paquetes = []
-        
-        ciudad = camiones_estado[index_camion_action][0]
-        camion = camiones[index_camion_action][0]
-        lista_paquetes = camiones_estado[index_camion_action][2]
-        for index, camon in enumerate(camiones_estado):
-            if index == action[0]:
-                for ciudad in CONECTADAS[camon[0]]:
-                    if ciudad[0] == action[1]:
-                        nasta = camon[1] - round((ciudad[1]/100),2)
+        nasta = 0
+        #print(state)
+        if action is not None:
+            camiones_estado, paquetes_estado = state
+            index_camion_action, ciudad_destino, nafta = action
+            
+            lista_paquetes = []
+            c = camiones_estado[index_camion_action][1]
+            ciudad = camiones_estado[index_camion_action][0]
+            camion = camiones[index_camion_action][0]
+            for indep, paq in enumerate(PAQUETES):
+                for paquete in camiones_estado[index_camion_action][2]:
+                    if indep == paquete:
+                        lista_paquetes.append(paq[0])
+            camiones_estado = list(camiones_estado)
+            #for index, camon in enumerate(camiones_estado):
+                #if index == action[0]:
+            #camon = camiones_estado[index_camion_action]
+            #for ciud in CONECTADAS[camon[0]]:
+            #    if ciud[0] == action[1]:
+            #        nasta = camon[1] - round((ciud[1]/100),2)
 
-        itinerario.append((camion, ciudad, nasta, list(lista_paquetes)))
-        print(itinerario)
+            itinerario.append((camion, ciudad, round(nafta, 2), list(lista_paquetes)))
+            #print(action)
+            #print(state)
+            #print(itinerario)
     return itinerario
 
-'''
+
 if __name__ == '__main__':
     
-    
+    '''
     camiones=[
         # id, ciudad de origen, y capacidad de combustible máxima (litros)
         ('c1', 'rafaela', 1.5),
@@ -213,13 +216,29 @@ if __name__ == '__main__':
         ('p4', 'recreo', 'san_vicente'),
     ]
 
+    '''
+
+    camiones=[
+        # id, ciudad de origen, y capacidad de combustible máxima (litros)
+        ('c1', 'rafaela', 1.5),
+    ]
+
+    paquetes=[
+        # id, ciudad de origen, y ciudad de destino
+        ('p1', 'rafaela', 'lehmann'),
+        ('p2', 'lehmann', 'rafaela'),
+        #('p3', 'esperanza', 'susana'),
+       #('p4', 'recreo', 'san_vicente'),
+        #('p5', 'esperanza', 'santa_fe'),
+        #('p4', 'santa_fe', 'san_vicente'),
+    ]
+    
     itinerario = planear_camiones(
         # método de búsqueda a utilizar. Puede ser: astar, breadth_first, depth_first, uniform_cost o greedy
-        breadth_first,camiones,paquetes
+        'breadth_first',camiones,paquetes
     )
 
     print(itinerario)
-'''
 
 
 
