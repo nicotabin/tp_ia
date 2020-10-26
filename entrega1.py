@@ -11,10 +11,10 @@ from simpleai.search.viewers import WebViewer, BaseViewer
 from simpleai.search.traditional import astar
 
 
-CAMIONES = []
-PAQUETES = []
+#CAMIONES = []
+#PAQUETES = []
+COMBUSTIBLE = ['rafaela', 'santa_fe']
 
-INITIAL_STATE = ((('sunchales',1.5,()), ('sunchales',2,()), ('rafaela',2, ())), ('p1', 'p2', 'p3', 'p4'))
 
 CONECTADAS = {
     'sunchales': [('lehmann', 32)],
@@ -36,81 +36,111 @@ class tp_iaProblem(SearchProblem):
     
     def cost(self,state1,action,state2):
         camiones1, paquetes1 = state1
-        camiones2, paquetes2 = state2
-        costo = 0
-        nafta_origen = 0
-        nafta_destino = 0
+        camiones1 = []
+        if isinstance(state1[0][0], str):
+            camiones1.append(state1[0])
+        else:
+            for camon in state1[0]:
+                camiones1.append(camon)
 
-        for index_2, camion2 in enumerate(camiones2):
-            if camiones2[index_2] == action[0]:
-                nafta_destino = camion2[2]
-                for index_1, camion1 in enumerate(camiones1):
-                    if index_1 == index_2:
-                        nafta_origen = camion1[2]
+        costo = 0
+
+        for index, camion in enumerate(camiones1):
+            if index == action[0]:
+                for ciudad in CONECTADAS[camion[0]]:
+                    if ciudad[0] == action[1]:
+                        costo = camion[1] - round((ciudad[1]/100),2)
         
-        costo = nafta_origen - nafta_destino
         return costo
     
     def is_goal(self,state):
-        camiones, paquetes = state
-        camiones = list(camiones)
-        paquetes = list(paquetes)
-        return (set(camiones[0]) == ('rafaela', 'santa_fe') or set(camiones[0]) == ('santa_fe', 'rafaela')) and len(paquetes) == 0
+        camiones_estado, paquetes_estado = state
+        lista = []
+        if len(paquetes_estado) != 0:
+            return False
+
+        for cam in camiones_estado:
+            lista.append(cam)
+
+        for camion in lista:
+            if camion[0] not in COMBUSTIBLE or len(camion[2]) != 0:
+                return False
+
+        return True
     
     def actions(self,state):
         acciones_posibles = []
-        #camiones, paquetes = state
         camiones = []
         paquetes = []
-        camiones.append(state[0])
+        if isinstance(state[0][0], str):
+            camiones.append(state[0])
+        else:
+            for camon in state[0]:
+                camiones.append(camon)
+
         paquetes.append(state[1])
         lista_ciudades = []
         for index,  camion in enumerate(camiones):
-            #for ciudad in CONECTADAS[camion[0]]:
-            lista_ciudades = CONECTADAS[camion[0][0]]
+            lista_ciudades = CONECTADAS[camion[0]]
             for ciudad in lista_ciudades:
-                nafta = ciudad[1]/100
-                if (camion[0][1] >= nafta):
+                nafta = round((ciudad[1]/100),2)
+                if (camion[1] >= nafta):
                     acciones_posibles.append((index, ciudad[0]))
         return acciones_posibles    
             
     
     def result(self, state, action):
         camiones_estado, paquetes_estado = state
-        camiones_estado = list(camiones_estado)
+        camiones_estado = []
         paquetes_estado = list(paquetes_estado)
+        if isinstance(state[0][0], str):
+            camiones_estado.append(state[0])
+        else:
+            for camon in state[0]:
+                camiones_estado.append(camon)
         nafta = 0
+        ciudad_destino = action[1]
+        camion_estado = list(camiones_estado[action[0]])
+        caracteristicas_camion = CAMIONES[action[0]]
+        if camion_estado[0] == 'rafaela' or camion_estado[0] == 'santa_fe':
+            camion_estado[1] = caracteristicas_camion[2]
+        else:
+            for destino in CONECTADAS[camion_estado[0]]:
+                if destino[0] == ciudad_destino:
+                    nafta = round((destino[1]/100),2)
         
-        for index, camion in enumerate(CAMIONES):
-            if index == action[0]:
-                camion_estado = list(camiones_estado[index])
-                if action[1] == 'rafaela' or action[1] == 'santa_fe':
-                    camiones_estado[index][1] = camiones[index][2]
-                else:
-                    for destino in CONECTADAS[camion_estado[0]]:
-                        if destino[0] == action[1]:
-                            nafta = destino[1]/100
-                    camion_estado[1] -= nafta
-                for paquete in paquetes_estado:
-                    for index_paq, paq in enumerate(PAQUETES):
-                        if paquete == index_paq and camion_estado[0] in paq[1]:
-                            paquetes_estado.remove(paq)
-                            camion_estado[2] = list(camion_estado[2])
-                            camion_estado[2].append(paquete)
-                            camion_estado[2] = tuple(camion_estado[2])
+        
+        for index_paq, paq in enumerate(PAQUETES):
+            for paquete in paquetes_estado:
+                if paquete == index_paq and camion_estado[0] == paq[1]:
+                    camion_estado[2] = list(camion_estado[2])
+                    camion_estado[2].append(paquete)
+                    camion_estado[2] = tuple(camion_estado[2])
 
-                        if paquete == index_paq and camion_estado[0] in paq[2]:
-                            camion_estado[2] = list(camion_estado[2])
-                            camion_estado[2].remove(paquete)
-                            camion_estado[2] = tuple(camion_estado[2])
-                camiones_estado[index] = tuple(camion_estado)
+        for paq in camion_estado[2]:
+            for paq2 in paquetes_estado:
+                if paq == paq2:
+                    paquetes_estado.remove(paq)
+
+        if len(camion_estado[2]) != 0:
+            for paquete in camion_estado[2]:
+                for index_paq, paq in enumerate(PAQUETES):
+                    if index_paq == paquete:
+                        camion_estado[2] = list(camion_estado[2])
+                        camion_estado[2].remove(index_paq)
+                        camion_estado[2] = tuple(camion_estado[2])
+        camion_estado[1] -= nafta
+        camion_estado[0] = ciudad_destino
+        camiones_estado[action[0]] = tuple(camion_estado)
         state = (tuple(camiones_estado), tuple(paquetes_estado))
+        print(state)
+        return state
 
-        return tuple(state)
 
     def heuristic (self, state):
         camiones, paquetes = state
         return len(paquetes)
+        #return 0.1
     
 
 def planear_camiones (metodo, camiones, paquetes):
@@ -124,8 +154,10 @@ def planear_camiones (metodo, camiones, paquetes):
 
     INITIAL_STATE = (tuple(lista), tuple(lista2))
 
-    CAMIONES = camiones
-    PAQUETES = paquetes
+    global CAMIONES
+    CAMIONES =  list(camiones)
+    global PAQUETES 
+    PAQUETES = list(paquetes)
 
     problem = tp_iaProblem(INITIAL_STATE)
 
@@ -147,22 +179,24 @@ def planear_camiones (metodo, camiones, paquetes):
         camiones_estado, paquetes_estado = state
         index_camion_action, ciudad_destino = action
         lista_paquetes = []
-        for index_camion, camion in enumerate(camiones_estado):
-            if index_camion == index_camion_action:
-                for ciudades in CONECTADAS[camion[1]]:
-                    for ciudad in ciudades:
-                        if ciudad == ciudad_destino:
-                            nasta = ciudad[1]/100
-                            for index_paquete, paq in paquetes:
-                                for p in camion[2]:
-                                    if p == index_paquete:
-                                        lista_paquetes.append(paq[0])
-                            itinerario = (camiones[index_camion][0], ciudad_destino, nasta, tuple(lista_paquetes))
-    
+        
+        ciudad = camiones_estado[index_camion_action][0]
+        camion = camiones[index_camion_action][0]
+        lista_paquetes = camiones_estado[index_camion_action][2]
+        for index, camon in enumerate(camiones_estado):
+            if index == action[0]:
+                for ciudad in CONECTADAS[camon[0]]:
+                    if ciudad[0] == action[1]:
+                        nasta = camon[1] - round((ciudad[1]/100),2)
+
+        itinerario.append((camion, ciudad, nasta, list(lista_paquetes)))
+
     return itinerario
 
-
+'''
 if __name__ == '__main__':
+    
+    
     camiones=[
         # id, ciudad de origen, y capacidad de combustible máxima (litros)
         ('c1', 'rafaela', 1.5),
@@ -184,6 +218,8 @@ if __name__ == '__main__':
     )
 
     print(itinerario)
+'''
+
 
 
 
