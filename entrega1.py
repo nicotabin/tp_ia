@@ -133,7 +133,6 @@ class tp_iaProblem(SearchProblem):
         camion_estado[0] = ciudad_destino
         camiones_estado[action[0]] = tuple(camion_estado)
         state = (tuple(camiones_estado), tuple(paquetes_estado))
-        print(state)
         return state
 
 
@@ -146,7 +145,7 @@ class tp_iaProblem(SearchProblem):
 def planear_camiones (metodo, camiones, paquetes):
     lista = []
     for camion in camiones:
-        lista.extend(((camion[1], camion[2]), ())) 
+        lista.extend((camion[1], camion[2], ())) 
 
     lista2 = []
     for index, paquete in enumerate(paquetes):
@@ -176,8 +175,10 @@ def planear_camiones (metodo, camiones, paquetes):
     nasta = 0
 
     for action, state in result.path():
+        #if state is not None and action is not None:
         camiones_estado, paquetes_estado = state
         index_camion_action, ciudad_destino = action
+        
         lista_paquetes = []
         
         ciudad = camiones_estado[index_camion_action][0]
@@ -190,7 +191,7 @@ def planear_camiones (metodo, camiones, paquetes):
                         nasta = camon[1] - round((ciudad[1]/100),2)
 
         itinerario.append((camion, ciudad, nasta, list(lista_paquetes)))
-
+        print(itinerario)
     return itinerario
 
 '''
