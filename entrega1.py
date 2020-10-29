@@ -10,9 +10,10 @@ from simpleai.search.viewers import WebViewer, BaseViewer
 
 from simpleai.search.traditional import astar
 
+import time
 
-#CAMIONES = []
-#PAQUETES = []
+
+
 COMBUSTIBLE = ['rafaela', 'santa_fe']
 
 
@@ -95,7 +96,7 @@ class tp_iaProblem(SearchProblem):
         caracteristicas_camion = CAMIONES[action[0]]
         if camion_estado[0] == 'rafaela' or camion_estado[0] == 'santa_fe':
             camion_estado[1] = caracteristicas_camion[2]
-        #else:
+
         nafta_camion = round(camion_estado[1])
         if nafta_camion >= nafta: 
             nafta = action[2]
@@ -125,15 +126,30 @@ class tp_iaProblem(SearchProblem):
         #print(camion_estado[1])
         camiones_estado[action[0]] = tuple(camion_estado)
         state = (tuple(camiones_estado), tuple(paquetes_estado))
-        print(state)
         return state
 
 
     def heuristic (self, state):
         camiones, paquetes = state
-        return len(paquetes)
-        #return 0.1
-    
+        lista_paquetes = []
+        heuristica = 0
+        if len(paquetes) != 0:
+            for index, paquete in enumerate(PAQUETES):
+                for paq in paquetes:
+                    if paq == index:
+                        lista_paquetes.append(paquete[2])
+        for camion in camiones:
+            if len(camion[2]) != 0:
+                for index, paquete in enumerate(PAQUETES):
+                    for paq in camion[2]:
+                        if paq == index:
+                            lista_paquetes.append(paquete[2])
+        lista_paquetes = set(lista_paquetes)
+        heuristica = round((len(lista_paquetes)/12.5), 2)
+
+        return heuristica
+
+
 
 def planear_camiones (metodo, camiones, paquetes):
     lista = []
@@ -164,13 +180,11 @@ def planear_camiones (metodo, camiones, paquetes):
     
 
     result = METODOS[metodo](problem)
-    print(result)
     itinerario = []
     
 
     for action, state in result.path():
         nasta = 0
-        #print(state)
         if action is not None:
             camiones_estado, paquetes_estado = state
             index_camion_action, ciudad_destino, nafta = action
@@ -184,22 +198,12 @@ def planear_camiones (metodo, camiones, paquetes):
                     if indep == paquete:
                         lista_paquetes.append(paq[0])
             camiones_estado = list(camiones_estado)
-            #for index, camon in enumerate(camiones_estado):
-                #if index == action[0]:
-            #camon = camiones_estado[index_camion_action]
-            #for ciud in CONECTADAS[camon[0]]:
-            #    if ciud[0] == action[1]:
-            #        nasta = camon[1] - round((ciud[1]/100),2)
-
             itinerario.append((camion, ciudad, round(nafta, 2), list(lista_paquetes)))
-            #print(action)
-            #print(state)
-            #print(itinerario)
     return itinerario
 
 
 if __name__ == '__main__':
-    
+    #start_time = time.time()
     '''
     camiones=[
         # id, ciudad de origen, y capacidad de combustible máxima (litros)
@@ -227,7 +231,7 @@ if __name__ == '__main__':
         # id, ciudad de origen, y ciudad de destino
         ('p1', 'rafaela', 'lehmann'),
         ('p2', 'lehmann', 'rafaela'),
-        #('p3', 'esperanza', 'susana'),
+        ('p3', 'esperanza', 'susana'),
        #('p4', 'recreo', 'san_vicente'),
         #('p5', 'esperanza', 'santa_fe'),
         #('p4', 'santa_fe', 'san_vicente'),
@@ -235,7 +239,7 @@ if __name__ == '__main__':
     
     itinerario = planear_camiones(
         # método de búsqueda a utilizar. Puede ser: astar, breadth_first, depth_first, uniform_cost o greedy
-        'breadth_first',camiones,paquetes
+        'astar',camiones,paquetes
     )
 
     print(itinerario)
